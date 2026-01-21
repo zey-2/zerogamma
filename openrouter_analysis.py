@@ -6,6 +6,7 @@ Sends zero gamma level and SPX OHLC data to OpenRouter for AI-powered analysis.
 
 import json
 import logging
+import re
 
 import requests
 
@@ -71,6 +72,7 @@ Recent 30-Day OHLC Data:
                     "content": prompt,
                 }
             ],
+            "response_format": {"type": "json_object"},
             "temperature": 0.7,
             "max_tokens": 250,
         }
@@ -125,8 +127,12 @@ def _format_structured_analysis(analysis: str) -> str:
     Raises:
         ValueError: If JSON is invalid or missing required fields.
     """
+    candidate = _extract_json_from_text(analysis)
+    if not candidate:
+        raise ValueError("OpenRouter returned invalid JSON")
+
     try:
-        payload = json.loads(analysis)
+        payload = json.loads(candidate)
     except json.JSONDecodeError as exc:
         raise ValueError("OpenRouter returned invalid JSON") from exc
 
@@ -157,3 +163,24 @@ def _format_structured_analysis(analysis: str) -> str:
         f"{chr(10).join(bullet_lines)}"
     )
     return formatted
+
+
+def _extract_json_from_text(text: str) -> str | None:
+    """
+    Extract a JSON object from the given text.
+
+    Parameters:
+        text (str): Text that may contain JSON.
+
+    Returns:
+        str | None: JSON substring if found, otherwise None.
+    """
+    stripped = text.strip()
+    if stripped.startswith("{") and stripped.endswith("}"):
+        return stripped
+
+    match = re.search(r"\{.*\}", stripped, re.DOTALL)
+    if match:
+        return match.group(0)
+
+    return None
