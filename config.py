@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def get_config():
+def get_config() -> dict:
     """
     Retrieve all required configuration from environment variables.
     
@@ -44,4 +44,9 @@ def get_config():
             "Please set them in your .env file or export them as environment variables."
         )
     
+    # Optional configuration
+    topic_id = os.getenv("TELEGRAM_TOPIC_ID")
+    if topic_id:
+        config["TELEGRAM_TOPIC_ID"] = topic_id
+
     return config

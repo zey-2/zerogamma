@@ -180,6 +180,7 @@ def run_analysis_pipeline(
     telegram_token: str,
     telegram_chat_id: str,
     symbol: str = DEFAULT_SYM,
+    telegram_topic_id: Optional[str] = None,
 ) -> bool:
     """
     Execute complete analysis pipeline.
@@ -193,6 +194,7 @@ def run_analysis_pipeline(
         telegram_token: Telegram bot token.
         telegram_chat_id: Telegram group chat ID.
         symbol: Stock symbol to analyze.
+        telegram_topic_id: Telegram topic (message thread) ID.
         
     Returns:
         bool: True if pipeline completed, False if any step failed.
@@ -228,6 +230,7 @@ def run_analysis_pipeline(
             bot_token=telegram_token,
             chat_id=telegram_chat_id,
             message=message,
+            message_thread_id=telegram_topic_id,
         )
         
         if success:
@@ -276,6 +279,7 @@ def main():
             telegram_token=config["TELEGRAM_BOT_TOKEN"],
             telegram_chat_id=config["TELEGRAM_CHAT_ID"],
             symbol=args.symbol,
+            telegram_topic_id=config.get("TELEGRAM_TOPIC_ID"),
         )
         
         logger.info("=" * 60)

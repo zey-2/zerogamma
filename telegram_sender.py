@@ -19,6 +19,7 @@ async def _send_message_async(
     bot_token: str,
     chat_id_int: int,
     message: str,
+    message_thread_id: int | None = None,
 ) -> None:
     """
     Send a Telegram message asynchronously.
@@ -27,12 +28,14 @@ async def _send_message_async(
         bot_token (str): Telegram bot token.
         chat_id_int (int): Telegram chat ID as integer.
         message (str): Message text to send.
+        message_thread_id (int | None): Telegram topic (message thread) ID.
     """
     async with Bot(token=bot_token) as bot:
         await bot.send_message(
             chat_id=chat_id_int,
             text=message,
             parse_mode="HTML",
+            message_thread_id=message_thread_id,
         )
 
 
@@ -40,6 +43,7 @@ def send_to_telegram(
     bot_token: str,
     chat_id: str,
     message: str,
+    message_thread_id: str | None = None,
 ) -> bool:
     """
     Send formatted message to Telegram group chat.
@@ -48,6 +52,7 @@ def send_to_telegram(
         bot_token (str): Telegram bot token.
         chat_id (str): Telegram group chat ID (can be negative for groups).
         message (str): Message text to send.
+        message_thread_id (str | None): Telegram topic (message thread) ID.
     
     Returns:
         bool: True if message sent successfully, False otherwise.
@@ -60,15 +65,36 @@ def send_to_telegram(
             logger.error(f"Invalid chat ID format: {chat_id}")
             return False
 
+        # Parse topic ID (optional)
+        topic_id_int = None
+        if message_thread_id:
+            try:
+                topic_id_int = int(message_thread_id)
+            except ValueError:
+                logger.error(
+                    f"Invalid message_thread_id format: {message_thread_id}"
+                )
+                return False
+
         # Send message (async API)
         try:
             asyncio.run(
-                _send_message_async(bot_token, chat_id_int, message)
+                _send_message_async(
+                    bot_token,
+                    chat_id_int,
+                    message,
+                    message_thread_id=topic_id_int,
+                )
             )
         except RuntimeError:
             loop = asyncio.get_event_loop()
             loop.run_until_complete(
-                _send_message_async(bot_token, chat_id_int, message)
+                _send_message_async(
+                    bot_token,
+                    chat_id_int,
+                    message,
+                    message_thread_id=topic_id_int,
+                )
             )
         
         logger.info(f"Successfully sent message to Telegram chat {chat_id}")
