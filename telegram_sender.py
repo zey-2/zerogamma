@@ -4,11 +4,34 @@ Telegram messaging module for sending market analysis to group chat.
 Uses python-telegram-bot to post formatted analysis results.
 """
 
+import asyncio
+
 from telegram import Bot
 from telegram.error import TelegramError
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+async def _send_message_async(
+    bot_token: str,
+    chat_id_int: int,
+    message: str,
+) -> None:
+    """
+    Send a Telegram message asynchronously.
+
+    Parameters:
+        bot_token (str): Telegram bot token.
+        chat_id_int (int): Telegram chat ID as integer.
+        message (str): Message text to send.
+    """
+    async with Bot(token=bot_token) as bot:
+        await bot.send_message(
+            chat_id=chat_id_int,
+            text=message,
+            parse_mode="HTML",
+        )
 
 
 def send_to_telegram(
@@ -28,21 +51,23 @@ def send_to_telegram(
         bool: True if message sent successfully, False otherwise.
     """
     try:
-        bot = Bot(token=bot_token)
-        
         # Parse chat ID (handle negative group chat IDs)
         try:
             chat_id_int = int(chat_id)
         except ValueError:
             logger.error(f"Invalid chat ID format: {chat_id}")
             return False
-        
-        # Send message
-        bot.send_message(
-            chat_id=chat_id_int,
-            text=message,
-            parse_mode="HTML",
-        )
+
+        # Send message (async API)
+        try:
+            asyncio.run(
+                _send_message_async(bot_token, chat_id_int, message)
+            )
+        except RuntimeError:
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(
+                _send_message_async(bot_token, chat_id_int, message)
+            )
         
         logger.info(f"Successfully sent message to Telegram chat {chat_id}")
         return True

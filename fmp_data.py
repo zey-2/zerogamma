@@ -5,14 +5,13 @@ Fetches 1-month of historical OHLC data for SPX and formats as CSV with latest c
 """
 
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
 
-def fetch_spx_ohlc_csv(api_key: str, days: int = 30) -> Tuple[str, float]:
 def fetch_spx_ohlc_csv(api_key: str, days: int = 30) -> Tuple[str, float]:
     """
     Fetch historical OHLC data for SPX from FMP API and return as CSV format with latest price.
@@ -31,11 +30,15 @@ def fetch_spx_ohlc_csv(api_key: str, days: int = 30) -> Tuple[str, float]:
     symbol = "^GSPC"  # SPX ticker for FMP
     
     try:
-        # FMP historical price endpoint
-        url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}"
+        # FMP stable historical price endpoint (full version)
+        url = "https://financialmodelingprep.com/stable/historical-price-eod/full"
+        to_date = datetime.now(timezone.utc).date()
+        from_date = to_date - timedelta(days=max(days * 2, 45))
         params = {
+            "symbol": symbol,
+            "from": from_date.isoformat(),
+            "to": to_date.isoformat(),
             "apikey": api_key,
-            "limit": days,
         }
         
         response = requests.get(url, params=params, timeout=30)
@@ -43,13 +46,17 @@ def fetch_spx_ohlc_csv(api_key: str, days: int = 30) -> Tuple[str, float]:
         
         data = response.json()
         
-        if "historical" not in data:
+        # Stable endpoint returns data as a list directly
+        if isinstance(data, list):
+            historical = data
+        elif isinstance(data, dict) and "historical" in data:
+            # Fallback for older endpoint format
+            historical = data["historical"]
+        else:
             raise ValueError(
                 f"Unexpected FMP API response structure. "
-                f"Response keys: {list(data.keys())}"
+                f"Response type: {type(data)}"
             )
-        
-        historical = data["historical"]
         
         if not historical:
             raise ValueError(
@@ -59,6 +66,10 @@ def fetch_spx_ohlc_csv(api_key: str, days: int = 30) -> Tuple[str, float]:
         # Sort by date ascending (oldest first)
         historical = sorted(historical, key=lambda x: x["date"])
         
+        # Limit to requested number of days (FMP may return more)
+        if len(historical) > days:
+            historical = historical[-days:]
+        
         # Get latest closing price (last record)
         latest_close = float(historical[-1].get("close", 0))
         
@@ -67,6 +78,7 @@ def fetch_spx_ohlc_csv(api_key: str, days: int = 30) -> Tuple[str, float]:
         
         for record in historical:
             date = record.get("date", "")
+            # Full endpoint returns OHLC fields
             open_price = record.get("open", 0)
             high_price = record.get("high", 0)
             low_price = record.get("low", 0)
