@@ -5,10 +5,12 @@ Uses python-telegram-bot to post formatted analysis results.
 """
 
 import asyncio
+import html
+import logging
+import re
 
 from telegram import Bot
 from telegram.error import TelegramError
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -98,15 +100,68 @@ def format_analysis_message(
     Returns:
         str: Formatted HTML message for Telegram.
     """
-    timestamp = __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+    timestamp = __import__("datetime").datetime.now().strftime(
+        "%Y-%m-%d"
+    )
+    formatted_analysis = _normalize_analysis_for_telegram(analysis)
+
     message = (
         f"<b>{symbol} Market Analysis</b>\n"
         f"<i>{timestamp}</i>\n\n"
         f"<b>Current Price:</b> ${current_price:.2f}\n"
         f"<b>Zero Gamma Level:</b> ${zero_gamma_level:.2f}\n\n"
         f"<b>Analysis:</b>\n"
-        f"{analysis}"
+        f"{formatted_analysis}"
     )
     
     return message
+
+
+def _normalize_analysis_for_telegram(text: str) -> str:
+    """
+    Normalize analysis text for Telegram HTML parse mode.
+
+    Converts Markdown bold to HTML bold, preserves bullets, and escapes
+    unsupported HTML characters to avoid formatting issues.
+
+    Parameters:
+        text (str): Raw analysis text from OpenRouter.
+
+    Returns:
+        str: Telegram-safe HTML text.
+    """
+    escaped = html.escape(text)
+    lines = escaped.splitlines()
+    normalized_lines = [_convert_line(line) for line in lines]
+    return "\n".join(normalized_lines).strip()
+
+
+def _convert_line(line: str) -> str:
+    """
+    Convert a single line to Telegram-safe HTML.
+
+    Parameters:
+        line (str): Escaped text line.
+
+    Returns:
+        str: Converted line with bullets and bold formatting.
+    """
+    stripped = line.lstrip()
+    bullet_prefixes = ("* ", "- ")
+    if stripped.startswith(bullet_prefixes):
+        content = stripped[2:].strip()
+        return f"• {_convert_bold_markdown(content)}"
+    return _convert_bold_markdown(line)
+
+
+def _convert_bold_markdown(text: str) -> str:
+    """
+    Convert Markdown bold markers to Telegram HTML bold tags.
+
+    Parameters:
+        text (str): Escaped text containing Markdown bold markers.
+
+    Returns:
+        str: Text with Markdown bold converted to HTML.
+    """
+    return re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
