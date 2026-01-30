@@ -65,7 +65,7 @@ Recent 30-Day OHLC Data:
         }
         
         payload = {
-            "model": "xiaomi/mimo-v2-flash:free",
+            "model": "nvidia/nemotron-3-nano-30b-a3b:free",
             "messages": [
                 {
                     "role": "user",
@@ -73,8 +73,8 @@ Recent 30-Day OHLC Data:
                 }
             ],
             "response_format": {"type": "json_object"},
-            "temperature": 0.7,
-            "max_tokens": 250,
+            # "temperature": 0.7,
+            # "max_tokens": 250,
         }
         
         response = requests.post(url, json=payload, headers=headers, timeout=60)
@@ -82,7 +82,13 @@ Recent 30-Day OHLC Data:
         
         data = response.json()
         
+        # DEBUG: Log the full response for diagnosis
+        logger.debug(f"OpenRouter full response: {json.dumps(data, indent=2)}")
+        
         if "choices" not in data or not data["choices"]:
+            # DEBUG: Log what we actually received
+            logger.error(f"OpenRouter response missing 'choices'. Response keys: {list(data.keys())}")
+            logger.error(f"Full response: {json.dumps(data, indent=2)}")
             raise ValueError(
                 f"Unexpected OpenRouter API response structure. "
                 f"Response keys: {list(data.keys())}"
@@ -90,7 +96,12 @@ Recent 30-Day OHLC Data:
         
         analysis = data["choices"][0].get("message", {}).get("content", "")
         
+        # DEBUG: Log the analysis content
+        logger.debug(f"Analysis content extracted: {repr(analysis)}")
+        
         if not analysis:
+            # DEBUG: Log the full choice object to see what's there
+            logger.error(f"Empty analysis. Full choice[0]: {json.dumps(data['choices'][0], indent=2)}")
             raise ValueError("OpenRouter returned empty analysis content")
         
         formatted = _format_structured_analysis(analysis)
